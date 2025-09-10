@@ -19,6 +19,6 @@
     "dotenv": "^16.3.1"
   },
   "keywords": ["video", "upload", "express", "mongodb"],
-  "author": "Your Name",
+  "author": "Kiyo",
   "license": "MIT"
 }
