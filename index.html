@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sha - Media Sharing</title>
+    <title>MediaVault - Link Media Sharing</title>
     <style>
         * {
             margin: 0;
@@ -396,15 +396,15 @@
     <div class="container">
         <!-- Login Form -->
         <div id="loginForm" class="login-form">
-            <h1>Sha - Media</h1>
-            <p>Media Sharing Platform</p>
+            <h1>MediaVault</h1>
+            <p>Link-Based Media Sharing Platform</p>
             <div class="form-group">
                 <input type="text" id="username" placeholder="Username" required>
             </div>
             <div class="form-group">
                 <input type="password" id="password" placeholder="Password" required>
             </div>
-            <button class="login-btn" onclick="login()">Access Thund💦</button>
+            <button class="login-btn" onclick="login()">Access Vault</button>
             <div class="error-msg" id="errorMsg">Invalid credentials</div>
             <p style="margin-top: 30px; opacity: 0.6; font-size: 0.9em;">
                 Demo credentials: admin / password123
@@ -444,7 +444,7 @@
                 <div class="success-msg" id="linkSuccessMsg"></div>
                 <p style="text-align: center; opacity: 0.7; font-size: 0.9em; margin-top: 15px;">
                     Supports direct links to images (jpg, png, gif, webp) and videos (mp4, webm, mov)<br>
-                    <strong>Database:</strong> <span id="dbStatus" style="color: #4caf50;">🔄 Checking connection...</span>
+                    <strong>📹 Videos require admin password</strong> • <strong>Database:</strong> <span id="dbStatus" style="color: #4caf50;">🔄 Checking connection...</span>
                 </p>
             </div>
 
@@ -465,9 +465,24 @@
         let mediaFiles = [];
         let recentlyAdded = [];
         let currentUser = '';
+        let deviceId = '';
         
         // Delete password - change this to your preferred password
         const DELETE_PASSWORD = 'delete123';
+        
+        // Admin upload password for videos - change this to your preferred password
+        const ADMIN_UPLOAD_PASSWORD = 'admin123';
+
+        // Generate or retrieve device ID
+        function getDeviceId() {
+            let storedDeviceId = localStorage.getItem('mediaVault_deviceId');
+            if (!storedDeviceId) {
+                // Generate unique device ID
+                storedDeviceId = 'device_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                localStorage.setItem('mediaVault_deviceId', storedDeviceId);
+            }
+            return storedDeviceId;
+        }
         
         // Database configuration
         const DATABASE_URL = 'postgresql://xeon_web_db_user:MPYSRfNhotFXLDr0B66vKCBVoVGkZqBk@dpg-d354mjgdl3ps738c3os0-a.oregon-postgres.render.com/xeon_web_db'; // Replace with your Render database URL
@@ -480,6 +495,7 @@
 
             if (validCredentials[username] === password) {
                 currentUser = username;
+                deviceId = getDeviceId(); // Get unique device ID
                 document.getElementById('loginForm').style.display = 'none';
                 document.getElementById('dashboard').style.display = 'block';
                 errorMsg.style.display = 'none';
@@ -518,6 +534,23 @@
                 return;
             }
 
+            const mediaType = getMediaTypeFromUrl(url);
+            
+            // Check if it's a video and require admin password
+            if (mediaType === 'video') {
+                const enteredPassword = prompt('Video uploads require admin password:');
+                
+                if (!enteredPassword) {
+                    showError('Video upload cancelled');
+                    return;
+                }
+                
+                if (enteredPassword !== ADMIN_UPLOAD_PASSWORD) {
+                    showError('Incorrect admin password. Video upload denied.');
+                    return;
+                }
+            }
+
             // Show loading state
             addBtnText.style.display = 'none';
             addBtnLoading.style.display = 'inline-block';
@@ -532,9 +565,11 @@
                     id: Date.now() + Math.random(),
                     name: getFilenameFromUrl(url),
                     url: url,
-                    type: getMediaTypeFromUrl(url),
+                    type: mediaType,
                     addDate: new Date(),
-                    isNew: true
+                    isNew: true,
+                    deviceId: deviceId, // Store which device uploaded this
+                    uploadedBy: currentUser
                 };
                 
                 mediaFiles.unshift(mediaItem);
@@ -553,7 +588,11 @@
                 updateStats();
                 
                 linkInput.value = '';
-                showSuccess('Media added successfully!');
+                if (mediaType === 'video') {
+                    showSuccess('Video uploaded successfully with admin permission!');
+                } else {
+                    showSuccess('Media added successfully!');
+                }
                 
                 // Remove "new" status after 10 seconds
                 setTimeout(() => {
@@ -695,7 +734,23 @@
             const grid = document.getElementById('mediaGrid');
             grid.innerHTML = '';
 
-            mediaFiles.forEach((media, index) => {
+            // Filter media to show only items uploaded from this device
+            const deviceMedia = mediaFiles.filter(media => media.deviceId === deviceId);
+
+            if (deviceMedia.length === 0) {
+                grid.innerHTML = `
+                    <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #ccc;">
+                        <h3>No media found from this device</h3>
+                        <p>Add some media using the form above!</p>
+                    </div>
+                `;
+                return;
+            }
+
+            deviceMedia.forEach((media, index) => {
+                // Find the actual index in the full mediaFiles array for delete function
+                const actualIndex = mediaFiles.findIndex(item => item.id === media.id);
+                
                 const mediaElement = document.createElement('div');
                 mediaElement.className = `media-item ${media.isNew ? 'new' : ''}`;
                 
@@ -704,8 +759,8 @@
                     `<video class="media-preview" controls><source src="${media.url}" type="video/mp4"></video>` :
                     `<img class="media-preview" src="${media.url}" alt="${media.name}" onerror="this.style.display='none'">`;
 
-                // Show delete button for all users, but it will require password
-                const deleteButton = `<button class="delete-btn" onclick="deleteMedia(${index})" title="Delete (Password Required)">×</button>`;
+                // Show delete button with password requirement
+                const deleteButton = `<button class="delete-btn" onclick="deleteMedia(${actualIndex})" title="Delete (Password Required)">×</button>`;
 
                 mediaElement.innerHTML = `
                     ${media.isNew ? '<div class="new-badge">NEW</div>' : ''}
@@ -716,6 +771,9 @@
                         <div class="media-url">${media.url}</div>
                         <a href="${media.url}" class="media-link" target="_blank">Open Original</a>
                         <a href="${media.url}" class="media-link" download="${media.name}">Download</a>
+                        <div style="font-size: 0.7em; opacity: 0.5; margin-top: 5px;">
+                            Uploaded by: ${media.uploadedBy || 'Unknown'} • ${media.addDate.toLocaleDateString()}
+                        </div>
                     </div>
                 `;
                 
@@ -775,6 +833,7 @@
         }
 
         function updateStats() {
+            // Show stats for ALL media (shared database)
             document.getElementById('totalFiles').textContent = mediaFiles.length;
             document.getElementById('recentUploads').textContent = recentlyAdded.length;
             document.getElementById('totalLinks').textContent = mediaFiles.length;
@@ -795,7 +854,9 @@
                         url: mediaItem.url,
                         type: mediaItem.type,
                         addDate: mediaItem.addDate.toISOString(),
-                        userId: getCurrentUserId()
+                        userId: getCurrentUserId(),
+                        deviceId: mediaItem.deviceId,
+                        uploadedBy: mediaItem.uploadedBy
                     })
                 });
                 
@@ -829,7 +890,9 @@
                 mediaFiles = data.map(item => ({
                     ...item,
                     addDate: new Date(item.addDate),
-                    isNew: false // Don't show as new when loading from database
+                    isNew: false, // Don't show as new when loading from database
+                    deviceId: item.deviceId || 'unknown', // Handle old records without deviceId
+                    uploadedBy: item.uploadedBy || 'Unknown'
                 }));
                 
                 console.log('Media loaded from database successfully');
@@ -910,7 +973,9 @@
                     mediaFiles = JSON.parse(stored).map(item => ({
                         ...item,
                         addDate: new Date(item.addDate),
-                        isNew: false
+                        isNew: false,
+                        deviceId: item.deviceId || 'unknown', // Handle old records
+                        uploadedBy: item.uploadedBy || 'Unknown'
                     }));
                     renderMediaGrid();
                     updateStats();
@@ -949,8 +1014,11 @@
             }
         }
 
-        // Initialize database connection check
+        // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
+            // Initialize device ID immediately
+            deviceId = getDeviceId();
+            
             // Check database connection after a short delay
             setTimeout(checkDatabaseConnection, 1000);
             
