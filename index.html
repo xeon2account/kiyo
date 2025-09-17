@@ -13,7 +13,7 @@
 
         body {
             font-family: 'Arial', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #2c2c2c 0%, #000000 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -22,12 +22,12 @@
         }
 
         .container {
-            background: rgba(255, 255, 255, 0.05);
+            background: rgba(255, 255, 255, 0.02);
             backdrop-filter: blur(10px);
             border-radius: 20px;
             padding: 40px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.05);
             width: 90%;
             max-width: 1200px;
             min-height: 600px;
@@ -782,7 +782,6 @@
                     ${previewElement}
                     <div class="media-info">
                         <div class="media-name">${media.name}</div>
-                        <div class="media-url">${media.url}</div>
                         <a href="${media.url}" class="media-link" target="_blank">Open Original</a>
                         <a href="${media.url}" class="media-link" download="${media.name}">Download</a>
                         <div style="font-size: 0.7em; opacity: 0.5; margin-top: 5px;">
@@ -877,16 +876,25 @@
             }
             
             container.innerHTML = pendingApprovalFiles.map((item, index) => `
-                <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.1);">
-                    <div style="flex: 1;">
-                        <strong>${item.name}</strong><br>
-                        <small style="opacity: 0.7;">${item.url.substring(0, 60)}${item.url.length > 60 ? '...' : ''}</small><br>
-                        <small style="opacity: 0.5;">Submitted by: ${item.uploadedBy} • ${item.submittedAt.toLocaleString()}</small>
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 15px; background: rgba(255,255,255,0.02); border-radius: 8px; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.05);">
+                    <div style="display: flex; align-items: center; gap: 15px; flex: 1;">
+                        <div style="width: 60px; height: 60px; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.02);">
+                            ${item.type === 'video' ? 
+                                `<video style="width: 100%; height: 100%; object-fit: cover;" muted>
+                                    <source src="${item.url}" type="video/mp4">
+                                </video>` :
+                                `<img style="width: 100%; height: 100%; object-fit: cover;" src="${item.url}" alt="${item.name}" onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\\"display:flex;align-items:center;justify-content:center;height:100%;color:#666;font-size:12px;\\">No Preview</div>';">`
+                            }
+                        </div>
+                        <div style="flex: 1;">
+                            <strong>${item.name}</strong><br>
+                            <small style="opacity: 0.5;">Submitted by: ${item.uploadedBy} • ${item.submittedAt.toLocaleString()}</small>
+                        </div>
                     </div>
                     <div style="display: flex; gap: 5px; align-items: center;">
-                        ${item.type === 'video' ? '<span style="background: #ff9800; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7em;">VIDEO</span>' : '<span style="background: #4caf50; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7em;">IMAGE</span>'}
-                        <button onclick="approveMedia(${index})" style="background: #4caf50; border: none; color: white; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8em;">✓ Approve</button>
-                        <button onclick="rejectMedia(${index})" style="background: #f44336; border: none; color: white; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8em;">✗ Reject</button>
+                        ${item.type === 'video' ? '<span style="background: #666; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7em;">VIDEO</span>' : '<span style="background: #888; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7em;">IMAGE</span>'}
+                        <button onclick="approveMedia(${index})" style="background: #666; border: none; color: white; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8em;">✓ Approve</button>
+                        <button onclick="rejectMedia(${index})" style="background: #333; border: none; color: white; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8em;">✗ Reject</button>
                     </div>
                 </div>
             `).join('');
