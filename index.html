@@ -902,8 +902,46 @@
                 console.error('Database load error:', error);
                 // Fallback to local storage if database fails
                 loadFromLocalStorage();
+                
+                // If no local storage either, add demo data
+                if (mediaFiles.length === 0) {
+                    addDemoData();
+                }
                 console.log('Loaded from local storage as fallback');
             }
+        }
+
+        function addDemoData() {
+            // Add some demo images to show the system working
+            const demoMedia = [
+                {
+                    id: 'demo_1',
+                    name: 'sample-image.jpg',
+                    url: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400',
+                    type: 'image',
+                    addDate: new Date(),
+                    isNew: false,
+                    deviceId: 'demo',
+                    uploadedBy: 'Demo User'
+                },
+                {
+                    id: 'demo_2',
+                    name: 'nature.jpg',
+                    url: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400',
+                    type: 'image',
+                    addDate: new Date(Date.now() - 86400000), // Yesterday
+                    isNew: false,
+                    deviceId: 'demo',
+                    uploadedBy: 'Demo User'
+                }
+            ];
+            
+            mediaFiles = demoMedia;
+            renderMediaGrid();
+            updateStats();
+            
+            // Save demo data to local storage
+            saveToLocalStorage();
         }
 
         async function deleteMediaFromDatabase(mediaId) {
