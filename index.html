@@ -748,22 +748,24 @@
             const grid = document.getElementById('mediaGrid');
             grid.innerHTML = '';
 
-            // Show all media files (shared across all users/devices for demo purposes)
-            const displayMedia = mediaFiles;
+            // Show ALL approved media files to ALL users (global media sharing)
+            // This ensures every logged-in user can see media uploaded by any user
+            const displayMedia = mediaFiles.filter(media => media.status !== 'pending');
 
             if (displayMedia.length === 0) {
                 grid.innerHTML = `
                     <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #ccc;">
                         <h3>No media found</h3>
                         <p>Add some media using the form above!</p>
+                        <p style="font-size: 0.9em; opacity: 0.7; margin-top: 10px;">All approved media from any user will appear here</p>
                     </div>
                 `;
                 return;
             }
 
             displayMedia.forEach((media, index) => {
-                // Use the actual index since we're showing all media
-                const actualIndex = index;
+                // Find the actual index in the full mediaFiles array for deletion
+                const actualIndex = mediaFiles.findIndex(m => m.id === media.id);
                 
                 const mediaElement = document.createElement('div');
                 mediaElement.className = `media-item ${media.isNew ? 'new' : ''}`;
@@ -773,8 +775,13 @@
                     `<video class="media-preview" controls><source src="${media.url}" type="video/mp4"></video>` :
                     `<img class="media-preview" src="${media.url}" alt="${media.name}" onerror="this.style.display='none'">`;
 
-                // Show delete button with password requirement
+                // Show delete button with password requirement (available to all users but password protected)
                 const deleteButton = `<button class="delete-btn" onclick="deleteMedia(${actualIndex})" title="Delete (Password Required)">×</button>`;
+
+                // Show who uploaded it and when
+                const uploaderInfo = media.approvedBy && media.approvedBy !== media.uploadedBy ? 
+                    `Uploaded by: ${media.uploadedBy || 'Unknown'} • Approved by: ${media.approvedBy} • ${media.addDate.toLocaleDateString()}` :
+                    `Uploaded by: ${media.uploadedBy || 'Unknown'} • ${media.addDate.toLocaleDateString()}`;
 
                 mediaElement.innerHTML = `
                     ${media.isNew ? '<div class="new-badge">NEW</div>' : ''}
@@ -785,7 +792,7 @@
                         <a href="${media.url}" class="media-link" target="_blank">Open Original</a>
                         <a href="${media.url}" class="media-link" download="${media.name}">Download</a>
                         <div style="font-size: 0.7em; opacity: 0.5; margin-top: 5px;">
-                            Uploaded by: ${media.uploadedBy || 'Unknown'} • ${media.addDate.toLocaleDateString()}
+                            ${uploaderInfo}
                         </div>
                     </div>
                 `;
@@ -846,13 +853,18 @@
         }
 
         function updateStats() {
-            // Show stats for ALL media (shared database)
-            const totalImages = mediaFiles.filter(media => media.type === 'image').length;
-            const totalVideos = mediaFiles.filter(media => media.type === 'video').length;
-            const activeLinks = mediaFiles.length; // All uploaded media are active links
+            // Show stats for ALL approved media (visible to all users)
+            const approvedMedia = mediaFiles.filter(media => media.status !== 'pending');
+            const totalImages = approvedMedia.filter(media => media.type === 'image').length;
+            const totalVideos = approvedMedia.filter(media => media.type === 'video').length;
+            const activeLinks = approvedMedia.length;
             
-            document.getElementById('totalFiles').textContent = mediaFiles.length;
-            document.getElementById('recentUploads').textContent = recentlyAdded.length;
+            // Recent uploads from all users (last 24 hours)
+            const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+            const recentFromAll = approvedMedia.filter(media => media.addDate > oneDayAgo).length;
+            
+            document.getElementById('totalFiles').textContent = approvedMedia.length;
+            document.getElementById('recentUploads').textContent = recentFromAll;
             document.getElementById('totalLinks').textContent = activeLinks;
             document.getElementById('pendingCount').textContent = pendingApprovalFiles.length;
         }
@@ -1037,7 +1049,8 @@
 
         async function loadMediaFromDatabase() {
             try {
-                const response = await fetch(`${DATABASE_URL}/api/media?userId=${getCurrentUserId()}`, {
+                // Load ALL approved media from all users (global sharing)
+                const response = await fetch(`${DATABASE_URL}/api/media/all`, {
                     headers: {
                         'Authorization': `Bearer ${API_KEY}`
                     }
@@ -1052,18 +1065,19 @@
                     ...item,
                     addDate: new Date(item.addDate),
                     isNew: false, // Don't show as new when loading from database
-                    deviceId: item.deviceId || 'unknown', // Handle old records without deviceId
-                    uploadedBy: item.uploadedBy || 'Unknown'
+                    deviceId: item.deviceId || 'unknown',
+                    uploadedBy: item.uploadedBy || 'Unknown',
+                    status: item.status || 'approved' // Default to approved for existing media
                 }));
                 
-                console.log('Media loaded from database successfully');
+                console.log('All media loaded from database successfully');
                 renderMediaGrid();
                 updateStats();
             } catch (error) {
                 console.error('Database load error:', error);
                 // Fallback to local storage if database fails
-                loadFromLocalStorage();
-                loadPendingFromLocalStorage(); // Also load pending items
+                loadFromLocalStorageGlobal();
+                loadPendingFromLocalStorage();
                 
                 // If no local storage either, add demo data
                 if (mediaFiles.length === 0) {
@@ -1074,7 +1088,7 @@
         }
 
         function addDemoData() {
-            // Add some demo images to show the system working
+            // Add some demo images to show the system working (these will be visible to all users)
             const demoMedia = [
                 {
                     id: 'demo_1',
@@ -1083,8 +1097,11 @@
                     type: 'image',
                     addDate: new Date(),
                     isNew: false,
-                    deviceId: deviceId, // Use current device ID
-                    uploadedBy: currentUser
+                    deviceId: 'demo_device',
+                    uploadedBy: 'admin',
+                    status: 'approved',
+                    approvedBy: 'admin',
+                    approvedAt: new Date()
                 },
                 {
                     id: 'demo_2',
@@ -1093,8 +1110,11 @@
                     type: 'image',
                     addDate: new Date(Date.now() - 86400000), // Yesterday
                     isNew: false,
-                    deviceId: deviceId, // Use current device ID
-                    uploadedBy: currentUser
+                    deviceId: 'demo_device',
+                    uploadedBy: 'admin',
+                    status: 'approved',
+                    approvedBy: 'admin',
+                    approvedAt: new Date(Date.now() - 86400000)
                 }
             ];
             
@@ -1102,7 +1122,7 @@
             renderMediaGrid();
             updateStats();
             
-            // Save demo data to local storage
+            // Save demo data to global storage
             saveToLocalStorage();
         }
 
@@ -1153,29 +1173,34 @@
             }
         }
 
-        // Local storage fallback functions
+        // Global local storage functions (shared across all users)
         function saveToLocalStorage() {
             try {
                 const dataToSave = mediaFiles.map(item => ({
                     ...item,
-                    addDate: item.addDate.toISOString()
+                    addDate: item.addDate.toISOString(),
+                    approvedAt: item.approvedAt ? item.approvedAt.toISOString() : null
                 }));
-                localStorage.setItem(`mediaVault_${getCurrentUserId()}`, JSON.stringify(dataToSave));
+                // Save globally, not per user - all users see the same media
+                localStorage.setItem('mediaVault_global', JSON.stringify(dataToSave));
             } catch (error) {
                 console.error('Local storage save error:', error);
             }
         }
 
-        function loadFromLocalStorage() {
+        function loadFromLocalStorageGlobal() {
             try {
-                const stored = localStorage.getItem(`mediaVault_${getCurrentUserId()}`);
+                // Load from global storage - same for all users
+                const stored = localStorage.getItem('mediaVault_global');
                 if (stored) {
                     mediaFiles = JSON.parse(stored).map(item => ({
                         ...item,
                         addDate: new Date(item.addDate),
+                        approvedAt: item.approvedAt ? new Date(item.approvedAt) : null,
                         isNew: false,
-                        deviceId: item.deviceId || 'unknown', // Handle old records
-                        uploadedBy: item.uploadedBy || 'Unknown'
+                        deviceId: item.deviceId || 'unknown',
+                        uploadedBy: item.uploadedBy || 'Unknown',
+                        status: item.status || 'approved' // Default to approved for existing media
                     }));
                     renderMediaGrid();
                     updateStats();
@@ -1184,6 +1209,11 @@
                 console.error('Local storage load error:', error);
                 mediaFiles = [];
             }
+        }
+
+        function loadFromLocalStorage() {
+            // Redirect to global load function
+            loadFromLocalStorageGlobal();
         }
 
         function getCurrentUserId() {
@@ -1234,6 +1264,14 @@
             
             // Check database connection after a short delay
             setTimeout(checkDatabaseConnection, 1000);
+            
+            // Load global media for all users
+            setTimeout(() => {
+                loadFromLocalStorageGlobal();
+                if (mediaFiles.length === 0) {
+                    addDemoData();
+                }
+            }, 500);
             
             document.getElementById('username').addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
