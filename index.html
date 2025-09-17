@@ -517,7 +517,11 @@
                 document.getElementById('loginForm').style.display = 'none';
                 document.getElementById('dashboard').style.display = 'block';
                 errorMsg.style.display = 'none';
+                
+                // Initialize all dashboard components
                 await loadMediaFromDatabase();
+                loadPendingFromLocalStorage(); // Load pending approvals
+                renderPendingApprovals(); // Render the pending approvals section
                 updateStats();
             } else {
                 errorMsg.style.display = 'block';
@@ -857,6 +861,15 @@
         // New functions for admin approval system
         function renderPendingApprovals() {
             const container = document.getElementById('pendingApprovals');
+            const pendingCountElement = document.getElementById('pendingCount');
+            
+            if (!container || !pendingCountElement) {
+                console.error('Pending approvals elements not found in DOM');
+                return;
+            }
+            
+            // Update pending count
+            pendingCountElement.textContent = pendingApprovalFiles.length;
             
             if (pendingApprovalFiles.length === 0) {
                 container.innerHTML = '<p style="text-align: center; color: #ccc; padding: 20px;">No items pending approval</p>';
@@ -885,23 +898,24 @@
                 return;
             }
             
-            const password = prompt('Enter admin approval password to review pending uploads:');
-            
-            if (!password) {
-                return;
-            }
-            
-            if (password !== ADMIN_APPROVAL_PASSWORD) {
-                alert('Incorrect admin approval password');
-                return;
-            }
-            
-            // Scroll to pending approvals section
+            // Just scroll to pending approvals section - password required for individual actions
             document.getElementById('pendingApprovals').scrollIntoView({ behavior: 'smooth' });
-            showSuccess(`Admin access granted! ${pendingApprovalFiles.length} items awaiting your review.`);
+            showSuccess(`${pendingApprovalFiles.length} items awaiting review. Click Approve/Reject buttons to take action (admin password required for each action).`);
         }
 
         async function approveMedia(index) {
+            // Request admin password for approval
+            const password = prompt('Enter admin approval password to approve this media:');
+            
+            if (!password) {
+                return; // User cancelled
+            }
+            
+            if (password !== ADMIN_APPROVAL_PASSWORD) {
+                alert('Incorrect admin approval password. Media not approved.');
+                return;
+            }
+            
             const approvedItem = pendingApprovalFiles[index];
             
             // Move from pending to approved media files
@@ -934,6 +948,18 @@
         }
 
         function rejectMedia(index) {
+            // Request admin password for rejection
+            const password = prompt('Enter admin approval password to reject this media:');
+            
+            if (!password) {
+                return; // User cancelled
+            }
+            
+            if (password !== ADMIN_APPROVAL_PASSWORD) {
+                alert('Incorrect admin approval password. Media not rejected.');
+                return;
+            }
+            
             const rejectedItem = pendingApprovalFiles[index];
             
             if (confirm(`Reject "${rejectedItem.name}"? This action cannot be undone.`)) {
@@ -1194,6 +1220,9 @@
             // Make sure we start with the login form visible
             document.getElementById('loginForm').style.display = 'block';
             document.getElementById('dashboard').style.display = 'none';
+            
+            // Initialize pending approvals array
+            pendingApprovalFiles = [];
             
             // Check database connection after a short delay
             setTimeout(checkDatabaseConnection, 1000);
