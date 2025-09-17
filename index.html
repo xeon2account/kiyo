@@ -432,23 +432,23 @@
             </div>
 
             <div class="link-input-section">
-                <h2 style="margin-bottom: 20px; text-align: center;">Add Media via Link</h2>
+                <h2 style="margin-bottom: 20px; text-align: center;">Share Media with Everyone</h2>
                 <div class="link-input-area">
-                    <input type="url" id="mediaLink" class="link-input" placeholder="Enter image or video URL (e.g., https://example.com/image.jpg)" required>
+                    <input type="url" id="mediaLink" class="link-input" placeholder="Paste your image or video URL here (e.g., https://example.com/image.jpg)" required>
                     <button class="add-link-btn" onclick="addMediaFromLink()">
-                        <span id="addBtnText">Submit for Approval</span>
+                        <span id="addBtnText">Upload & Share</span>
                         <span id="addBtnLoading" class="loading" style="display: none;"></span>
                     </button>
                 </div>
                 <div class="error-msg" id="linkErrorMsg"></div>
                 <div class="success-msg" id="linkSuccessMsg"></div>
                 <p style="text-align: center; opacity: 0.7; font-size: 0.9em; margin-top: 15px;">
-                    All uploads require admin approval • <strong>📹 Videos require admin password</strong><br>
+                    Share images and videos with everyone • <strong>📹 Videos require admin password</strong><br>
                     <strong>PostgreSQL:</strong> <span id="dbStatus" style="color: #4caf50;">🔄 Checking connection...</span>
                 </p>
                 
-                <!-- Admin Approval Section -->
-                <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1);">
+                <!-- Admin section hidden since no approval needed -->
+                <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1); display: none;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                         <h3>Pending Approvals (<span id="pendingCount">0</span>)</h3>
                         <button class="add-link-btn" onclick="showAdminApprovalForm()" style="padding: 8px 20px; font-size: 14px;">
@@ -592,26 +592,34 @@
                     isNew: true,
                     deviceId: deviceId,
                     uploadedBy: currentUser,
-                    status: 'pending', // Add pending status
-                    submittedAt: new Date()
+                    status: 'approved', // Directly approve all uploads
+                    approvedBy: currentUser,
+                    approvedAt: new Date()
                 };
                 
-                // Add to pending approval queue instead of directly to media files
-                pendingApprovalFiles.unshift(mediaItem);
+                // Add directly to media files - no approval needed
+                mediaFiles.unshift(mediaItem);
+                recentlyAdded.unshift(mediaItem);
                 
-                // Save pending items to storage
-                savePendingToLocalStorage();
+                // Keep only last 5 recent additions for highlighting
+                if (recentlyAdded.length > 5) {
+                    recentlyAdded.pop();
+                }
                 
-                renderPendingApprovals();
+                // Save to storage
+                await saveMediaToDatabase(mediaItem);
+                saveToLocalStorage();
+                
+                renderMediaGrid();
                 updateStats();
                 
                 linkInput.value = '';
-                showSuccess(`Media submitted for admin approval! ${pendingApprovalFiles.length} items awaiting approval.`);
+                showSuccess(`Media uploaded and shared with everyone! "${mediaItem.name}" is now visible to all users.`);
                 
                 // Remove "new" status after 10 seconds
                 setTimeout(() => {
                     mediaItem.isNew = false;
-                    renderPendingApprovals();
+                    renderMediaGrid();
                 }, 10000);
                 
             } catch (error) {
@@ -755,9 +763,9 @@
             if (displayMedia.length === 0) {
                 grid.innerHTML = `
                     <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #ccc;">
-                        <h3>No media found</h3>
-                        <p>Add some media using the form above!</p>
-                        <p style="font-size: 0.9em; opacity: 0.7; margin-top: 10px;">All approved media from any user will appear here</p>
+                        <h3>No media uploaded yet</h3>
+                        <p>Be the first to share media using the form above!</p>
+                        <p style="font-size: 0.9em; opacity: 0.7; margin-top: 10px;">All uploaded media will be visible to everyone</p>
                     </div>
                 `;
                 return;
@@ -1088,42 +1096,10 @@
         }
 
         function addDemoData() {
-            // Add some demo images to show the system working (these will be visible to all users)
-            const demoMedia = [
-                {
-                    id: 'demo_1',
-                    name: 'sample-image.jpg',
-                    url: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400',
-                    type: 'image',
-                    addDate: new Date(),
-                    isNew: false,
-                    deviceId: 'demo_device',
-                    uploadedBy: 'admin',
-                    status: 'approved',
-                    approvedBy: 'admin',
-                    approvedAt: new Date()
-                },
-                {
-                    id: 'demo_2',
-                    name: 'nature.jpg',
-                    url: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400',
-                    type: 'image',
-                    addDate: new Date(Date.now() - 86400000), // Yesterday
-                    isNew: false,
-                    deviceId: 'demo_device',
-                    uploadedBy: 'admin',
-                    status: 'approved',
-                    approvedBy: 'admin',
-                    approvedAt: new Date(Date.now() - 86400000)
-                }
-            ];
-            
-            mediaFiles = demoMedia;
+            // No demo data - start with empty media array
+            mediaFiles = [];
             renderMediaGrid();
             updateStats();
-            
-            // Save demo data to global storage
-            saveToLocalStorage();
         }
 
         async function deleteMediaFromDatabase(mediaId) {
