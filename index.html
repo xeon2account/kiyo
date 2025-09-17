@@ -13,7 +13,7 @@
 
         body {
             font-family: 'Arial', sans-serif;
-            background: linear-gradient(135deg, #2c2c2c 0%, #1a1a1a 100%);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -735,22 +735,22 @@
             const grid = document.getElementById('mediaGrid');
             grid.innerHTML = '';
 
-            // Filter media to show only items uploaded from this device
-            const deviceMedia = mediaFiles.filter(media => media.deviceId === deviceId);
+            // Show all media files (shared across all users/devices for demo purposes)
+            const displayMedia = mediaFiles;
 
-            if (deviceMedia.length === 0) {
+            if (displayMedia.length === 0) {
                 grid.innerHTML = `
                     <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #ccc;">
-                        <h3>No media found from this device</h3>
+                        <h3>No media found</h3>
                         <p>Add some media using the form above!</p>
                     </div>
                 `;
                 return;
             }
 
-            deviceMedia.forEach((media, index) => {
-                // Find the actual index in the full mediaFiles array for delete function
-                const actualIndex = mediaFiles.findIndex(item => item.id === media.id);
+            displayMedia.forEach((media, index) => {
+                // Use the actual index since we're showing all media
+                const actualIndex = index;
                 
                 const mediaElement = document.createElement('div');
                 mediaElement.className = `media-item ${media.isNew ? 'new' : ''}`;
@@ -914,8 +914,8 @@
                     type: 'image',
                     addDate: new Date(),
                     isNew: false,
-                    deviceId: 'demo',
-                    uploadedBy: 'Demo User'
+                    deviceId: deviceId, // Use current device ID
+                    uploadedBy: currentUser
                 },
                 {
                     id: 'demo_2',
@@ -924,8 +924,8 @@
                     type: 'image',
                     addDate: new Date(Date.now() - 86400000), // Yesterday
                     isNew: false,
-                    deviceId: 'demo',
-                    uploadedBy: 'Demo User'
+                    deviceId: deviceId, // Use current device ID
+                    uploadedBy: currentUser
                 }
             ];
             
@@ -1053,6 +1053,10 @@
         document.addEventListener('DOMContentLoaded', function() {
             // Initialize device ID immediately
             deviceId = getDeviceId();
+            
+            // Make sure we start with the login form visible
+            document.getElementById('loginForm').style.display = 'block';
+            document.getElementById('dashboard').style.display = 'none';
             
             // Check database connection after a short delay
             setTimeout(checkDatabaseConnection, 1000);
