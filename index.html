@@ -464,6 +464,10 @@
 
         let mediaFiles = [];
         let recentlyAdded = [];
+        let currentUser = '';
+        
+        // Delete password - change this to your preferred password
+        const DELETE_PASSWORD = 'delete123';
         
         // Database configuration
         const DATABASE_URL = 'postgresql://xeon_web_db_user:MPYSRfNhotFXLDr0B66vKCBVoVGkZqBk@dpg-d354mjgdl3ps738c3os0-a.oregon-postgres.render.com/xeon_web_db'; // Replace with your Render database URL
@@ -475,6 +479,7 @@
             const errorMsg = document.getElementById('errorMsg');
 
             if (validCredentials[username] === password) {
+                currentUser = username;
                 document.getElementById('loginForm').style.display = 'none';
                 document.getElementById('dashboard').style.display = 'block';
                 errorMsg.style.display = 'none';
@@ -492,6 +497,7 @@
             document.getElementById('dashboard').style.display = 'none';
             document.getElementById('username').value = '';
             document.getElementById('password').value = '';
+            currentUser = '';
         }
 
         async function addMediaFromLink() {
@@ -698,9 +704,12 @@
                     `<video class="media-preview" controls><source src="${media.url}" type="video/mp4"></video>` :
                     `<img class="media-preview" src="${media.url}" alt="${media.name}" onerror="this.style.display='none'">`;
 
+                // Show delete button for all users, but it will require password
+                const deleteButton = `<button class="delete-btn" onclick="deleteMedia(${index})" title="Delete (Password Required)">×</button>`;
+
                 mediaElement.innerHTML = `
                     ${media.isNew ? '<div class="new-badge">NEW</div>' : ''}
-                    <button class="delete-btn" onclick="deleteMedia(${index})" title="Delete">×</button>
+                    ${deleteButton}
                     ${previewElement}
                     <div class="media-info">
                         <div class="media-name">${media.name}</div>
@@ -715,6 +724,18 @@
         }
 
         async function deleteMedia(index) {
+            // Prompt for delete password
+            const enteredPassword = prompt('Enter delete password to remove this media:');
+            
+            if (!enteredPassword) {
+                return; // User cancelled
+            }
+            
+            if (enteredPassword !== DELETE_PASSWORD) {
+                alert('Incorrect password. Media not deleted.');
+                return;
+            }
+
             if (confirm('Are you sure you want to remove this media?')) {
                 const mediaItem = mediaFiles[index];
                 mediaFiles.splice(index, 1);
@@ -725,6 +746,9 @@
                 
                 renderMediaGrid();
                 updateStats();
+                
+                // Show success message
+                showSuccess('Media deleted successfully!');
             }
         }
 
@@ -898,8 +922,8 @@
         }
 
         function getCurrentUserId() {
-            // Return current logged in user (you can enhance this)
-            return document.getElementById('username').value || 'anonymous';
+            // Return current logged in user
+            return currentUser || 'anonymous';
         }
 
         // Check database connection status
